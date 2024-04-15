@@ -1,0 +1,16 @@
+{
+  "name": "briansmaze",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^20.12.6"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@neynar/nodejs-sdk": "^1.15.0",
+    "@vercel/kv": "^1.0.1"
+  }
+}
