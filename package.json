@@ -1,16 +1,23 @@
 {
   "name": "briansmaze",
   "module": "index.ts",
-  "type": "module",
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/node": "^20.12.6"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
   },
   "dependencies": {
     "@neynar/nodejs-sdk": "^1.15.0",
-    "@vercel/kv": "^1.0.1"
+    "@vercel/kv": "^1.0.1",
+    "dotenv": "^16.4.5",
+    "experss": "^0.0.1-security",
+    "express": "^4.19.2"
+  },
+  "scripts": {
+    "start": "ts-node --project tsconfig.json src/index.ts",
+    "build": "tsc",
+    "serve": "node dist/index.js"
   }
 }
