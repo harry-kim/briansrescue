@@ -1,113 +1,161 @@
 import dotenv from "dotenv";
-const r = dotenv.config();
+dotenv.config();
+const { performance } = require("perf_hooks");
 
 import neynarClient from "./neynarClient";
-import Quest, { getDirection } from "./quest";
+import { getDirection, move, getMaze } from "./quest";
 import { kv } from "@vercel/kv";
-import express, { Request, Response } from "express";
+import { Request, Response } from "express";
+import express from "express";
 
-const q = new Quest(2);
-q.printMap();
-q.printMapLetters();
 const DEFAULT_COOLDOWN: number = 4 * 60 * 60 * 1000; // 4 hours in milliseconds, clearly defined as a constant
+const CHANNEL = process.env.CHANNEL || "brians-rescue";
 const COOLDOWN_TIME: number =
   Number(process.env.COOLDOWN_TIME) || DEFAULT_COOLDOWN;
 
-console.log("Starting...");
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.use(express.json())
-
-// const server = Bun.serve({
-// port: 3000,
-// async fetch(req) {
-  // app.use(bodyParser.urlencoded({ extended: true })); // For URL-encoded payloads
+app.use(express.json());
 
 app.post("/", async (req: Request, res: Response) => {
   try {
+    const start = performance.now();
     if (!process.env.SIGNER_UUID) {
       throw new Error("Make sure you set SIGNER_UUID in your .env file");
     }
 
-    // const body = await req.text();
-    // console.log(req);
-    console.log(req.body);
     const hookData = req.body;
-    const letter_direction = hookData.data.text.split(" ")[1];
-    const direction = getDirection(letter_direction);
+    const letterDirection = hookData.data.text.split(" ")[1];
+    const direction = getDirection(letterDirection);
 
     if (typeof direction === "undefined") {
       console.log("unrecognized command");
-      return new Response("Unrecognized command");
+      return res.status(400).send("Unrecognized command");
     }
-    let replyText: string;
+
     const now = new Date();
-    const author_fid = hookData.data.author.fid;
-    try {
-      const date: string = (await kv.get(author_fid)) || "";
-      const lastCommandTime = new Date(date);
-      const diffSinceLastCommand = now.getTime() - lastCommandTime.getTime();
-      if (diffSinceLastCommand < COOLDOWN_TIME) {
-        replyText = `You must wait ${diffSinceLastCommand} until you can move Brian again!`;
-        const replyResponse = await neynarClient.publishCast(
-          process.env.SIGNER_UUID,
-          replyText,
-          {
-            replyTo: hookData.data.hash,
-          }
-        );
-        return new Response("Cooldown!");
-      }
-    } catch (error) {
-      console.log(
-        `failed to get time of last command for ${author_fid}`,
-        error
+    const authorFid = hookData.data.author.fid;
+    console.log("Time elapsed", performance.now() - start);
+
+    const cooldownCheck = await checkCooldown(authorFid, now);
+    if (cooldownCheck.isCooldown) {
+      console.log(cooldownCheck.message);
+      await neynarClient.publishCast(
+        process.env.SIGNER_UUID,
+        cooldownCheck.message,
+        {
+          replyTo: hookData.data.hash,
+        }
       );
-      return new Response("Failed to get ");
+      return res.status(429).send(cooldownCheck.message);
     }
 
-    const moveSuccess = q.move(direction);
+    const moveResult = await move(direction);
 
     try {
-      await kv.set(author_fid, now.toISOString());
+      await kv.hset("lastMoved", {
+        fid: authorFid,
+        timestamp: now.toISOString(),
+      });
     } catch (error) {
-      console.log(
-        `failed to set time of last command for ${author_fid}`,
-        error
-      );
-      return new Response("Failed to set ");
+      console.log(`Failed to set time of last command for ${authorFid}`, error);
+      return res.status(500).send("Failed to set command time");
     }
 
-    const position = q.position();
-    if (moveSuccess) {
-      if (q.wonGame()) {
-        replyText = `Brian has successfully escaped the SEC offices!\n You win!!!`;
-      } else {
-        replyText = `Brian moved ${letter_direction}\nCurrent position ${position}`;
-      }
-    } else {
-      replyText = `Brian got caught by Gensler!\nGoing back to last checkpoint: ${position}`;
-    }
+    const replyText = generateReplyText(moveResult, letterDirection);
+    await neynarClient.publishCast(process.env.SIGNER_UUID, replyText, {
+      replyTo: hookData.data.hash,
+    });
 
-    const replyResponse = await neynarClient.publishCast(
-      process.env.SIGNER_UUID,
-      replyText,
-      {
-        replyTo: hookData.data.hash,
-      }
-    );
-    console.log("REPLYING");
-    // console.log(hookData);
-    // console.log("reply:", reply);
-    return new Response("Welcome to bun!");
+    console.log(replyText);
+    return res.send(`Moved successfully to ${moveResult.position}`);
   } catch (e: any) {
     console.log(e);
-    return new Response(e.message, { status: 500 });
+    return res.status(500).send(e.message);
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+async function checkCooldown(
+  authorFid: string,
+  now: Date
+): Promise<{ isCooldown: boolean; message: string }> {
+  try {
+    const date: string = (await kv.hget("lastMoved", authorFid)) || "";
+    const lastCommandTime = new Date(date);
+    const diffSinceLastCommand = now.getTime() - lastCommandTime.getTime();
+    if (diffSinceLastCommand < COOLDOWN_TIME) {
+      const message = `You must wait ${diffSinceLastCommand}ms until you can move Brian again!`;
+      return { isCooldown: true, message };
+    }
+    return { isCooldown: false, message: "" };
+  } catch (error) {
+    console.log(`Failed to get time of last command for ${authorFid}`, error);
+    return { isCooldown: true, message: "Failed to get command time" };
+  }
+}
+
+function generateReplyText(moveResult: any, letterDirection: string): string {
+  if (!moveResult.caught) {
+    if (moveResult.won) {
+      return `Brian has successfully escaped the SEC offices!\n You win!!!`;
+    } else {
+      return `Brian moved ${letterDirection}\nCurrent position ${moveResult.position}`;
+    }
+  } else {
+    return `Brian got caught by Gensler!\nGoing back to last checkpoint: ${moveResult.position}`;
+  }
+}
+
+async function startGame(): Promise<boolean> {
+  try {
+    const { maze, newGame } = await getMaze();
+    if (!newGame) {
+      return false;
+    }
+
+    if (!process.env.SIGNER_UUID) {
+      throw new Error("Make sure you set SIGNER_UUID in your .env file");
+    }
+
+    const newGameMessage = `🚨 **BRIAN TRAPPED AT SEC!** 🚨  
+    Caught in a cat and mouse game, Brian faces Gary's interrogation. 
+    /1337 breaches SEC’s comms, offering a lifeline.
+    
+    Can they help him escape? Join and outsmart!  
+    👾 Play: !movebrian <dir> #EscapeTheSEC #1337Hackers`;
+
+    const postGame = await neynarClient.publishCast(
+      process.env.SIGNER_UUID,
+      newGameMessage,
+      {
+        channelId: CHANNEL,
+      }
+    );
+    return true;
+  } catch (error) {
+    console.log(error);
+  }
+  return false;
+}
+
+app.post("/startGame", async (req: Request, res: Response) => {
+  const apiKey = req.headers["x-api-key"]; // Typically sent in headers for better security
+
+  console.log("starting");
+  if (!apiKey || apiKey !== process.env.START_API_KEY) {
+    return res.status(401).send("Unauthorized");
+  }
+  const newGame = await startGame();
+
+  if (newGame) {
+    res.status(200).send("Game started successfully!");
+  } else {
+    res.status(200).send("Game already started!");
+  }
 });
 
-export default app;
+app.get("/", (req: Request, res: Response) => {
+  res.send("Hello world!");
+});
+
+module.exports = app;

@@ -1,18 +1,19 @@
 {
   "name": "briansmaze",
   "module": "index.ts",
+  "main": "src/index.js",
   "devDependencies": {
-    "@types/bun": "latest",
     "@types/express": "^4.17.21",
     "@types/node": "^20.12.7",
+    "nodemon": "^3.1.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.7.2",
     "typescript": "^5.4.5"
   },
   "dependencies": {
     "@neynar/nodejs-sdk": "^1.15.0",
     "@vercel/kv": "^1.0.1",
     "dotenv": "^16.4.5",
-    "experss": "^0.0.1-security",
     "express": "^4.19.2"
   },
   "scripts": {
