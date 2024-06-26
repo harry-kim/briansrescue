@@ -1,4 +1,5 @@
-import { kv } from "@vercel/kv";
+import storage from "./storage";
+
 const enum DIR {
   NORTH = 0,
   EAST = 1,
@@ -29,7 +30,8 @@ const ALLOWED_NEXT_DIRS: { [key: number]: DIR[] } = {
 
 const directions = [DIR.NORTH, DIR.EAST, DIR.SOUTH, DIR.WEST];
 
-const DEFAULT_SIZE: number = Number(process.env.DEFAULT_MAZE_SIZE) || 100;
+export const DEFAULT_SIZE: number =
+  Number(process.env.DEFAULT_MAZE_SIZE) || 100;
 
 export function createMaze(size: number = DEFAULT_SIZE): Array<number> {
   const randomIndex = Math.floor(Math.random() * directions.length);
@@ -48,7 +50,7 @@ export function createMaze(size: number = DEFAULT_SIZE): Array<number> {
 async function getPosition(): Promise<number> {
   try {
     let currentPositionString: string =
-      (await kv.get("currentPosition")) || "0";
+      (await storage.get("currentPosition")) || "0";
     const currentPosition: number = parseInt(currentPositionString);
     return currentPosition;
   } catch (error) {
@@ -59,13 +61,13 @@ async function getPosition(): Promise<number> {
 
 async function setPosition(position: number): Promise<void> {
   try {
-    await kv.set("currentPosition", position);
+    await storage.set("currentPosition", position);
   } catch (error) {
     console.log(`error setting current position setting to ${position}`, error);
   }
 }
 
-function printMapLetters(maze: Array<number>): void {
+export function printMapLetters(maze: Array<number>): void {
   let dir_maze = maze.map((element) => CHAR_DIR[element]);
   console.log(dir_maze);
 }
@@ -75,18 +77,23 @@ export async function getMaze(): Promise<{
   newGame: boolean;
 }> {
   try {
-    let maze: number[] | null = await kv.get("maze");
+    let maze: number[] | null = await storage.get("maze");
     let newGame = false;
     if (maze == null) {
       console.log("Maze not found in DB, generating new maze...");
       maze = createMaze();
       printMapLetters(maze);
       try {
-        await kv.set("maze", maze);
-        await kv.set("checkpoint", "0");
-        await kv.set("currentPosition", "0");
-        await kv.set("lastMoved", "0");
-        await kv.del("lastMoved");
+        await storage.set("maze", maze);
+        let getmaze;
+        try {
+          getmaze = await storage.get("maze");
+        } catch (error) {
+          console.error("Error retrieving maze", error);
+        }
+        await storage.set("checkpoint", "0");
+        await storage.set("currentPosition", "0");
+        await storage.del("lastMoved");
         newGame = true;
       } catch (error) {
         console.log("error saving new maze", error);
@@ -102,7 +109,7 @@ export async function getMaze(): Promise<{
 
 async function gotoCheckpoint(): Promise<number> {
   try {
-    let checkpointString: string = (await kv.get("checkpoint")) || "0";
+    let checkpointString: string = (await storage.get("checkpoint")) || "0";
     const checkpoint: number = parseInt(checkpointString);
     console.log("going to checkpoint", checkpoint);
     await setPosition(checkpoint);
@@ -114,7 +121,7 @@ async function gotoCheckpoint(): Promise<number> {
 }
 async function saveCheckpoint(position: number): Promise<void> {
   try {
-    await kv.set("checkpoint", position);
+    await storage.set("checkpoint", position);
   } catch (error) {
     console.log(`error setting checkpoint to ${position}`, error);
   }
@@ -123,15 +130,15 @@ async function saveCheckpoint(position: number): Promise<void> {
 export async function move(
   direction: DIR
 ): Promise<{ position: number; caught: boolean; won: boolean }> {
-  // console.log(this.maze[this.currentPosition], direction);
   const { maze } = await getMaze();
 
   let currentPosition: number = await getPosition();
   let wonGame: boolean = false;
   if (maze[currentPosition] == direction) {
     currentPosition++;
-    if (currentPosition == maze.length - 1) {
+    if (currentPosition == maze.length) {
       wonGame = true;
+      await storage.del("maze");
     }
     await setPosition(currentPosition);
 
@@ -141,113 +148,7 @@ export async function move(
     return { position: currentPosition, caught: false, won: wonGame };
   }
   console.log("You got caught by GENSLER, going back to last checkpoint");
-  await gotoCheckpoint();
+  currentPosition = await gotoCheckpoint();
 
   return { position: currentPosition, caught: true, won: wonGame };
 }
-// export default class Quest {
-//   readonly maze: Array<DIR>;
-//   readonly mazeSize: number;
-//   currentPosition: number;
-//   lastCheckPoint: number;
-
-//   constructor(mazeSize: number = 100) {
-//     this.mazeSize = mazeSize;
-//     this.maze = createMaze(this.mazeSize);
-//     this.currentPosition = 0;
-//     this.lastCheckPoint = 0;
-//   }
-
-//   position(): number {
-//     return this.currentPosition;
-//   }
-
-//   wonGame(): boolean {
-//     const won = this.currentPosition == this.mazeSize;
-//     if (won) console.log("BRIAN HAS ESCAPED THE SEC!!");
-//     return won;
-//   }
-//   printMap() {
-//     console.log(this.maze);
-//   }
-//   printMapLetters() {
-//     let dir_maze = this.maze.map((element) => CHAR_DIR[element]);
-//     console.log(dir_maze);
-//   }
-//   printDirections() {
-//     const gridSize = 30; // Define the size of the grid
-//     const grid: string[][] = Array.from({ length: gridSize }, () =>
-//       Array.from({ length: gridSize }, () => " ")
-//     ); // Create a 2D grid filled with spaces
-
-//     // Starting position in the middle of the grid
-//     let x = Math.floor(gridSize / 2);
-//     let y = Math.floor(gridSize / 2);
-
-//     grid[y][x] = "S"; // Mark the starting point
-//     let symbol: string;
-//     // Function to move the position based on direction
-//     const move = (dir: DIR) => {
-//       switch (dir) {
-//         case DIR.NORTH:
-//           //   y = Math.max(0, y - 1);
-//           y--;
-//           symbol = "↑";
-//           break;
-//         case DIR.EAST:
-//           //   x = Math.min(gridSize - 1, x + 1);
-//           x++;
-//           symbol = "→";
-//           break;
-//         case DIR.SOUTH:
-//           //   y = Math.min(gridSize - 1, y + 1);
-//           y++;
-//           symbol = "↓";
-//           break;
-//         case DIR.WEST:
-//           //   x = Math.max(0, x - 1);
-//           x--;
-//           symbol = "←";
-//           break;
-//       }
-//       grid[y][x] = symbol; // Mark the path
-//     };
-
-//     // Apply each direction in the maze to move from the starting point
-//     this.maze.forEach((dir) => move(dir));
-
-//     // Convert the grid to a string and print it
-//     const gridString = grid.map((row) => row.join(" ")).join("\n");
-//     console.log(gridString);
-//   }
-// }
-
-// let q = new Quest();
-// q.printMap();
-// q.printMapLetters();
-//
-// let validPath: number[] = [];
-// // let currentPosition = 0;
-// let direction: number;
-// while (!q.wonGame()) {
-//   // console.log("current position", q.currentPosition);
-//   // console.log("valid path", validPath);
-//   if (q.currentPosition < validPath.length) {
-//     // console.log("following last path", validPath[q.currentPosition]);
-//     direction = validPath[q.currentPosition];
-//   } else {
-//     const randomIndex = Math.floor(Math.random() * directions.length);
-//     direction = directions[randomIndex];
-//     // console.log("trying random direction", direction);
-//   }
-
-//   if (q.move(direction)) {
-//     process.stdout.write(direction.toString())
-//     if (q.currentPosition > validPath.length) {
-//       validPath.push(direction);
-//     }
-//   }
-// }
-// console.log(JSON.stringify(q.maze));
-
-// console.log(q.maze.length)

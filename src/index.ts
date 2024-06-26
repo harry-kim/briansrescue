@@ -1,10 +1,9 @@
 import dotenv from "dotenv";
 dotenv.config();
-const { performance } = require("perf_hooks");
 
 import neynarClient from "./neynarClient";
 import { getDirection, move, getMaze } from "./quest";
-import { kv } from "@vercel/kv";
+import storage from "./storage";
 import { Request, Response } from "express";
 import express from "express";
 
@@ -19,7 +18,6 @@ app.use(express.json());
 
 app.post("/", async (req: Request, res: Response) => {
   try {
-    const start = performance.now();
     if (!process.env.SIGNER_UUID) {
       throw new Error("Make sure you set SIGNER_UUID in your .env file");
     }
@@ -29,31 +27,24 @@ app.post("/", async (req: Request, res: Response) => {
     const direction = getDirection(letterDirection);
 
     if (typeof direction === "undefined") {
-      console.log("unrecognized command");
+      console.log("unrecognized command: ", letterDirection);
       return res.status(400).send("Unrecognized command");
     }
 
     const now = new Date();
     const authorFid = hookData.data.author.fid;
-    console.log("Time elapsed", performance.now() - start);
 
     const cooldownCheck = await checkCooldown(authorFid, now);
     if (cooldownCheck.isCooldown) {
       console.log(cooldownCheck.message);
-      await neynarClient.publishCast(
-        process.env.SIGNER_UUID,
-        cooldownCheck.message,
-        {
-          replyTo: hookData.data.hash,
-        }
-      );
+      await neynarClient.replyCast(cooldownCheck.message, hookData.data.hash);
       return res.status(429).send(cooldownCheck.message);
     }
 
     const moveResult = await move(direction);
 
     try {
-      await kv.hset("lastMoved", {
+      await storage.hset("lastMoved", {
         fid: authorFid,
         timestamp: now.toISOString(),
       });
@@ -63,12 +54,11 @@ app.post("/", async (req: Request, res: Response) => {
     }
 
     const replyText = generateReplyText(moveResult, letterDirection);
-    await neynarClient.publishCast(process.env.SIGNER_UUID, replyText, {
-      replyTo: hookData.data.hash,
-    });
-
-    console.log(replyText);
-    return res.send(`Moved successfully to ${moveResult.position}`);
+    await neynarClient.replyCast(replyText, hookData.data.hash);
+    if (moveResult.won) {
+      startGame();
+    }
+    return res.send(replyText);
   } catch (e: any) {
     console.log(e);
     return res.status(500).send(e.message);
@@ -80,7 +70,7 @@ async function checkCooldown(
   now: Date
 ): Promise<{ isCooldown: boolean; message: string }> {
   try {
-    const date: string = (await kv.hget("lastMoved", authorFid)) || "";
+    const date: string = (await storage.hget("lastMoved", authorFid)) || "";
     const lastCommandTime = new Date(date);
     const diffSinceLastCommand = now.getTime() - lastCommandTime.getTime();
     if (diffSinceLastCommand < COOLDOWN_TIME) {
@@ -106,7 +96,7 @@ function generateReplyText(moveResult: any, letterDirection: string): string {
   }
 }
 
-async function startGame(): Promise<boolean> {
+export async function startGame(): Promise<boolean> {
   try {
     const { maze, newGame } = await getMaze();
     if (!newGame) {
@@ -124,13 +114,8 @@ async function startGame(): Promise<boolean> {
     Can they help him escape? Join and outsmart!  
     👾 Play: !movebrian <dir> #EscapeTheSEC #1337Hackers`;
 
-    const postGame = await neynarClient.publishCast(
-      process.env.SIGNER_UUID,
-      newGameMessage,
-      {
-        channelId: CHANNEL,
-      }
-    );
+    const postGame = await neynarClient.postCast(newGameMessage, CHANNEL);
+    console.log("newgame:", postGame);
     return true;
   } catch (error) {
     console.log(error);
@@ -141,7 +126,6 @@ async function startGame(): Promise<boolean> {
 app.post("/startGame", async (req: Request, res: Response) => {
   const apiKey = req.headers["x-api-key"]; // Typically sent in headers for better security
 
-  console.log("starting");
   if (!apiKey || apiKey !== process.env.START_API_KEY) {
     return res.status(401).send("Unauthorized");
   }
@@ -158,4 +142,8 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Hello world!");
 });
 
-module.exports = app;
+const server = app.listen(PORT, () => {
+  console.log(`[server]: Server is running at http://localhost:${PORT}`);
+});
+
+module.exports = server;
