@@ -1,53 +1,41 @@
-import { kv } from "@vercel/kv";
+jest.mock("@vercel/kv");
 
-import storage from "../storage";
 import { VercelKV, MockVercelKV } from "../storage";
-
-jest.mock("@vercel/kv", () => {
-  return {
-    kv: {
-      get: jest.fn().mockResolvedValue("mocked value"),
-      set: jest.fn().mockResolvedValue(undefined),
-      hget: jest.fn().mockResolvedValue("mocked value"),
-      hset: jest.fn().mockResolvedValue(1),
-      del: jest.fn().mockResolvedValue(1),
-    },
-  };
-});
-
+import { kv } from "@vercel/kv";
 describe("VercelKV", () => {
+  let storageInstance: VercelKV;
   beforeAll(() => {
-    const storage = new VercelKV();
+    storageInstance = new VercelKV();
   });
 
   it("get method should return correct value", async () => {
-    const result = await storage.get("key");
+    const result = await storageInstance.get("key");
 
     expect(result).toBe("mocked value");
     expect(kv.get).toHaveBeenCalledWith("key");
   });
 
   it("set method should set correct value", async () => {
-    const result = await storage.set("key", "value");
+    const result = await storageInstance.set("key", "value");
 
     expect(result).toBe(undefined);
     expect(kv.set).toHaveBeenCalledWith("key", "value");
   });
 
   it("hget method should return correct value", async () => {
-    const result = await storage.hget("key", "field");
+    const result = await storageInstance.hget("key", "field");
     expect(result).toBe("mocked value");
     expect(kv.hget).toHaveBeenCalledWith("key", "field");
   });
 
   it("hset method should set correct value", async () => {
-    const result = await storage.hset("key", "value");
+    const result = await storageInstance.hset("key", "value");
     expect(result).toBe(1);
     expect(kv.hset).toHaveBeenCalledWith("key", "value");
   });
 
   it("del method should delete correct key", async () => {
-    const result = await storage.del("key");
+    const result = await storageInstance.del("key");
     expect(result).toBe(1);
     expect(kv.del).toHaveBeenCalledWith("key");
   });
