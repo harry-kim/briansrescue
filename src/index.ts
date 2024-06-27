@@ -45,8 +45,7 @@ app.post("/", async (req: Request, res: Response) => {
 
     try {
       await storage.hset("lastMoved", {
-        fid: authorFid,
-        timestamp: now.toISOString(),
+        [authorFid]: now.toISOString(),
       });
     } catch (error) {
       console.log(`Failed to set time of last command for ${authorFid}`, error);

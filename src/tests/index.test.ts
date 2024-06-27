@@ -7,11 +7,11 @@ import request from "supertest";
 import storage from "../storage";
 import * as quest from "../quest";
 import neynarClient from "../neynarClient";
-import { hash } from "crypto";
 import { server } from "../index";
 
 beforeEach(() => {
   storage.del("maze");
+  jest.resetAllMocks();
 });
 
 afterAll((done) => {
