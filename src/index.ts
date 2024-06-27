@@ -17,12 +17,12 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 async function isEventProcessed(hash: string) {
-  const exists = await storage.hget('processed_events', hash);
+  const exists = await storage.hget("processed_events", hash);
   if (exists) {
     return true;
   } else {
-    await storage.hset('processed_events', {
-      [hash]: true
+    await storage.hset("processed_events", {
+      [hash]: true,
     });
     return false;
   }
@@ -36,14 +36,14 @@ app.post("/", async (req: Request, res: Response) => {
 
     const hookData = req.body;
     if (!hookData || !hookData.data || !hookData.data.hash) {
-      return res.status(400).send('Invalid event');
+      return res.status(400).send("Invalid event");
     }
     const hash = hookData.data.hash;
     // Check if the event has already been processed
     const processed = await isEventProcessed(hash);
     if (processed) {
-      console.log('Duplicate event received, ignoring:', hash);
-      return res.status(200).send('Event already processed');
+      console.log("Duplicate event received, ignoring:", hash);
+      return res.status(200).send("Event already processed");
     }
 
     const letterDirection = hookData.data.text.split(" ")[1];
@@ -96,7 +96,12 @@ async function checkCooldown(
     const lastCommandTime = new Date(date);
     const diffSinceLastCommand = now.getTime() - lastCommandTime.getTime();
     if (diffSinceLastCommand < COOLDOWN_TIME) {
-      const message = `You must wait ${diffSinceLastCommand}ms until you can move Brian again!`;
+      const totalSeconds = Math.floor(diffSinceLastCommand / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      const message = `You must wait ${hours} hours, ${minutes} minutes, and ${seconds} seconds until you can move Brian again!`;
       return { isCooldown: true, message };
     }
     return { isCooldown: false, message: "" };
