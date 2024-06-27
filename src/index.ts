@@ -16,6 +16,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
+async function isEventProcessed(hash: string) {
+  const exists = await storage.hget('processed_events', hash);
+  if (exists) {
+    return true;
+  } else {
+    await storage.hset('processed_events', {
+      [hash]: true
+    });
+    return false;
+  }
+}
+
 app.post("/", async (req: Request, res: Response) => {
   try {
     if (!process.env.SIGNER_UUID) {
@@ -23,6 +35,17 @@ app.post("/", async (req: Request, res: Response) => {
     }
 
     const hookData = req.body;
+    if (!hookData || !hookData.data || !hookData.data.hash) {
+      return res.status(400).send('Invalid event');
+    }
+    const hash = hookData.data.hash;
+    // Check if the event has already been processed
+    const processed = await isEventProcessed(hash);
+    if (processed) {
+      console.log('Duplicate event received, ignoring:', hash);
+      return res.status(200).send('Event already processed');
+    }
+
     const letterDirection = hookData.data.text.split(" ")[1];
     const direction = getDirection(letterDirection);
 
