@@ -146,4 +146,4 @@ const server = app.listen(PORT, () => {
   console.log(`[server]: Server is running at http://localhost:${PORT}`);
 });
 
-module.exports = server;
+export { server, app };

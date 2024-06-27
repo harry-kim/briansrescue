@@ -4,11 +4,11 @@ process.env.COOLDOWN_TIME = "0";
 process.env.DEFAULT_MAZE_SIZE = "20";
 
 import request from "supertest";
-const server = require("../index"); // Adjust the path as necessary
 import storage from "../storage";
 import * as quest from "../quest";
 import neynarClient from "../neynarClient";
 import { hash } from "crypto";
+import { server } from "../index";
 
 beforeEach(() => {
   storage.del("maze");
