@@ -95,12 +95,12 @@ async function checkCooldown(
     const date: string = (await storage.hget("lastMoved", authorFid)) || "";
     const lastCommandTime = new Date(date);
     const diffSinceLastCommand = now.getTime() - lastCommandTime.getTime();
+    const remainingCooldownTime = COOLDOWN_TIME - diffSinceLastCommand;
     if (diffSinceLastCommand < COOLDOWN_TIME) {
-      const totalSeconds = Math.floor(diffSinceLastCommand / 1000);
+      const totalSeconds = Math.floor(remainingCooldownTime / 1000);
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
-
       const message = `You must wait ${hours} hours, ${minutes} minutes, and ${seconds} seconds until you can move Brian again!`;
       return { isCooldown: true, message };
     }
