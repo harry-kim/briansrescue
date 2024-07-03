@@ -16,6 +16,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
+const BRIAN_ESCAPE_IMGURL = "ipfs://QmQhCAiDUqk85Gvx7mLMAqWk1y4WgBNTejDd7tAjnGxQ3n"
+function createWinningMessage(username:string) {
+  return `
+    🚀✨ VICTORY! ✨🚀
+    🔥 @${username} rescued Brian from Gary and the SEC office! 🔥
+    🎉 Brian is FREE! 🎉
+    🏆 Your bravery is legendary! 🏆
+    🥳 /1337 Skulls hail you! 🥳
+  `;
+}
+
+
 async function isEventProcessed(hash: string) {
   const exists = await storage.hget("processed_events", hash);
   if (exists) {
@@ -78,6 +90,7 @@ app.post("/", async (req: Request, res: Response) => {
     const replyText = generateReplyText(moveResult, letterDirection);
     await neynarClient.replyCast(replyText, hookData.data.hash);
     if (moveResult.won) {
+      await neynarClient.postCast(createWinningMessage(hookData.data.author.username), CHANNEL)
       startGame();
     }
     return res.send(replyText);
