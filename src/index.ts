@@ -35,7 +35,7 @@ app.post("/", async (req: Request, res: Response) => {
     }
 
     const hookData = req.body;
-    if (!hookData || !hookData.data || !hookData.data.hash) {
+    if (!hookData || !hookData.data || !hookData.data.hash || hookData.data.parent_hash) {
       return res.status(400).send("Invalid event");
     }
     const hash = hookData.data.hash;
