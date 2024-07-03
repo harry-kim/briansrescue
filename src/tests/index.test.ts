@@ -27,6 +27,7 @@ describe("POST /", () => {
           author: {
             fid: "123",
           },
+          hash: "mockHash"  
         },
       });
     expect(response.status).toBe(400);
@@ -34,6 +35,8 @@ describe("POST /", () => {
   });
 
   it("should return 429 if there is a cooldown", async () => {
+    // mock gett processed event as null
+    jest.spyOn(storage, "hget").mockResolvedValueOnce(null);
     // Mock the storage.hget function to return a recent command time
     jest.spyOn(storage, "hget").mockResolvedValueOnce(new Date().toISOString());
     jest.spyOn(neynarClient, "replyCast");
@@ -71,6 +74,7 @@ describe("POST /", () => {
           author: {
             fid: "123",
           },
+          hash: "mockHash"  ,
         },
       });
     expect(response.status).toBe(500);
@@ -119,6 +123,7 @@ describe("POST /", () => {
           author: {
             fid: "123",
           },
+          hash: "mockHash"  ,
         },
       });
     expect(response.status).toBe(500);
@@ -184,6 +189,7 @@ describe.skip("Play the game", () => {
               author: {
                 fid: "123",
               },
+              hash: "mockHash"  ,
             },
           });
         expect(moveResponse.status).toBe(200);
@@ -200,6 +206,7 @@ describe.skip("Play the game", () => {
               author: {
                 fid: "123",
               },
+              hash: "mockHash"  ,
             },
           });
 
