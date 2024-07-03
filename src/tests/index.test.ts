@@ -109,6 +109,34 @@ describe("POST /", () => {
     );
   });
 
+  it("should return 200 and move successfully and contain the correct text", async () => {
+    // Mock the move function to return a successful move result
+    jest.spyOn(quest, "move").mockResolvedValueOnce({
+      position: 1,
+      caught: false,
+      won: false,
+    });
+    jest.spyOn(neynarClient, "replyCast");
+
+    const response = await request(server)
+      .post("/")
+      .send({
+        data: {
+          text: "!movebrian s\nMove #7\n\nNext is either N or E",
+          author: {
+            fid: "123",
+          },
+          hash: "mockHash",
+        },
+      });
+    expect(response.status).toBe(200);
+    expect(response.text).toEqual("Brian moved S\nCurrent position 1");
+    expect(neynarClient.replyCast).toHaveBeenCalledWith(
+      expect.stringContaining("Brian moved"),
+      "mockHash"
+    );
+  });
+
   it("should return 500 if an error occurs", async () => {
     // Mock the move function to throw an error
     jest
