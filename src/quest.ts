@@ -47,7 +47,7 @@ export function createMaze(size: number = DEFAULT_SIZE): Array<number> {
   return maze;
 }
 
-async function getPosition(): Promise<number> {
+export async function getPosition(): Promise<number> {
   try {
     let currentPositionString: string =
       (await storage.get("currentPosition")) || "0";

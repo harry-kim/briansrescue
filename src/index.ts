@@ -2,10 +2,12 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import neynarClient from "./neynarClient";
-import { getDirection, move, getMaze } from "./quest";
+import { getDirection, move, getMaze, getPosition } from "./quest";
 import storage from "./storage";
 import { Request, Response } from "express";
 import express from "express";
+import satori from "satori";
+import { cooldownImage, currentPosition } from "./frame";
 
 const DEFAULT_COOLDOWN: number = 4 * 60 * 60 * 1000; // 4 hours in milliseconds, clearly defined as a constant
 const CHANNEL = process.env.CHANNEL || "brians-rescue";
@@ -16,8 +18,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
-const BRIAN_ESCAPE_IMGURL = "ipfs://QmQhCAiDUqk85Gvx7mLMAqWk1y4WgBNTejDd7tAjnGxQ3n"
-function createWinningMessage(username:string) {
+const BRIAN_ESCAPE_IMGURL =
+  "https://yellow-charming-gull-339.mypinata.cloud/ipfs/QmS6CumVsHfqpRkHDpwQTPV2cQH6GJH3LYFH4dRK4AgMs2";
+const BRIAN_FRAME_BACKGROUND =
+  "https://yellow-charming-gull-339.mypinata.cloud/ipfs/QmXgRrrsDfmkfnyuqyLYhC8Yj2Dk8ohU7SqW4uWS4DBqi4";
+function createWinningMessage(username: string) {
   return `
     🚀✨ VICTORY! ✨🚀
     🔥 @${username} rescued Brian from Gary and the SEC office! 🔥
@@ -26,7 +31,6 @@ function createWinningMessage(username:string) {
     🥳 /1337 Skulls hail you! 🥳
   `;
 }
-
 
 async function isEventProcessed(hash: string) {
   const exists = await storage.hget("processed_events", hash);
@@ -47,7 +51,12 @@ app.post("/", async (req: Request, res: Response) => {
     }
 
     const hookData = req.body;
-    if (!hookData || !hookData.data || !hookData.data.hash || hookData.data.parent_hash) {
+    if (
+      !hookData ||
+      !hookData.data ||
+      !hookData.data.hash ||
+      hookData.data.parent_hash
+    ) {
       return res.status(400).send("Invalid event");
     }
     const hash = hookData.data.hash;
@@ -90,7 +99,10 @@ app.post("/", async (req: Request, res: Response) => {
     const replyText = generateReplyText(moveResult, letterDirection);
     await neynarClient.replyCast(replyText, hookData.data.hash);
     if (moveResult.won) {
-      await neynarClient.postCast(createWinningMessage(hookData.data.author.username), CHANNEL)
+      await neynarClient.postCast(
+        createWinningMessage(hookData.data.author.username),
+        CHANNEL
+      );
       startGame();
     }
     return res.send(replyText);
@@ -102,8 +114,8 @@ app.post("/", async (req: Request, res: Response) => {
 
 async function checkCooldown(
   authorFid: string,
-  now: Date
-): Promise<{ isCooldown: boolean; message: string }> {
+  now: Date = new Date()
+): Promise<{ isCooldown: boolean; message: string; cooldownTime: string }> {
   try {
     const date: string = (await storage.hget("lastMoved", authorFid)) || "";
     const lastCommandTime = new Date(date);
@@ -115,12 +127,17 @@ async function checkCooldown(
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
       const message = `You must wait ${hours} hours, ${minutes} minutes, and ${seconds} seconds until you can move Brian again!`;
-      return { isCooldown: true, message };
+      const cooldownTime = `${hours}:${minutes}:${seconds}`;
+      return { isCooldown: true, message, cooldownTime };
     }
-    return { isCooldown: false, message: "" };
+    return { isCooldown: false, message: "", cooldownTime: "" };
   } catch (error) {
     console.log(`Failed to get time of last command for ${authorFid}`, error);
-    return { isCooldown: true, message: "Failed to get command time" };
+    return {
+      isCooldown: true,
+      message: "Failed to get command time",
+      cooldownTime: "",
+    };
   }
 }
 
@@ -180,6 +197,66 @@ app.post("/startGame", async (req: Request, res: Response) => {
 
 app.get("/", (req: Request, res: Response) => {
   res.send("Hello world!");
+});
+
+app.get("/frame/cooldown", async (req: Request, res: Response) => {
+  const fid = (req.query.fid as string) || "";
+  const cooldown = await checkCooldown(fid);
+  cooldownImage(req, res, cooldown.cooldownTime || "0");
+});
+
+app.get("/frame/currentPosition", async (req: Request, res: Response) => {
+  const position = (req.query.position as string) || "";
+  const length = (req.query.length as string) || "";
+  currentPosition(req, res, position, length);
+});
+
+app.get("/frame", (req: Request, res: Response) => {
+  const server_url = req.protocol + "://" + req.get("host") + req.originalUrl;
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+				<meta property="fc:frame" content="vNext" />
+				<meta property="fc:frame:image" content="${BRIAN_FRAME_BACKGROUND}" />
+				<meta property="fc:frame:post_url" content="${server_url}" />
+        <meta property="fc:frame:button:1" content="Cooldown" />
+        <meta property="fc:frame:button:2" content="Position" />
+      </head>
+    </html>
+`);
+});
+
+app.post("/frame", async (req: Request, res: Response) => {
+  const server_url = req.protocol + "://" + req.get("host") + req.originalUrl;
+  const data = await neynarClient.validateFrameAction(
+    req.body.trustedData.messageBytes
+  );
+  const fid = data.action.interactor.fid;
+  const tappedButton = data.action.tapped_button.index;
+  console.log(fid, tappedButton);
+  let frameImage = BRIAN_FRAME_BACKGROUND;
+  if (tappedButton === 1) {
+    frameImage = server_url + `/cooldown?fid=${fid}`;
+  } else if (tappedButton === 2) {
+    const position = await getPosition();
+    const length = (await getMaze()).maze.length;
+    frameImage =
+      server_url + `/currentPosition?position=${position}&length=${length}`;
+  }
+  console.log("using image", frameImage);
+
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+				<meta property="fc:frame" content="vNext" />
+				<meta property="fc:frame:image" content="${frameImage}" />
+        <meta property="fc:frame:button:1" content="Cooldown" />
+        <meta property="fc:frame:button:2" content="Position" />
+      </head>
+    </html>
+`);
 });
 
 const server = app.listen(PORT, () => {

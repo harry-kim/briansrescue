@@ -5,6 +5,7 @@ import { NeynarAPIClient } from "@neynar/nodejs-sdk";
 export interface NeynarClient {
   replyCast(message: string, replyHash: string): Promise<any>;
   postCast(message: string, channel: string): Promise<any>;
+  validateFrameAction(trustedData: string): Promise<any>;
 }
 class LiveNeynarClient implements NeynarClient {
   private neynarClient: NeynarAPIClient;
@@ -32,6 +33,9 @@ class LiveNeynarClient implements NeynarClient {
       channelId: channel,
     });
   }
+  async validateFrameAction(messageBytes: string): Promise<any> {
+    return await this.neynarClient.validateFrameAction(messageBytes);
+  }
 }
 
 class MockNeynarClient implements NeynarClient {
@@ -41,6 +45,9 @@ class MockNeynarClient implements NeynarClient {
 
   async postCast(message: string, channel: string): Promise<void> {
     console.log(`Channel:${channel}\n"${message}"`);
+  }
+  async validateFrameAction(messageBytes: string): Promise<void> {
+    console.log("validating", messageBytes)
   }
 }
 

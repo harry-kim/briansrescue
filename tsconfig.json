@@ -12,10 +12,14 @@
       "*": ["node_modules/*", "src/types/*"]
     },
     "types": ["jest", "node"],
+    "jsx": "react",
+    "allowJs": true, // Add this line
+    "resolveJsonModule": true, // Add this line if you also import JSON files
+    "checkJs": false // Add this line to not check JavaScript files
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"],
   "ts-node": {
-    "esm": true,
+    "esm": true
   }
 }
