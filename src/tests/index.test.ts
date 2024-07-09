@@ -1,7 +1,5 @@
-process.env.MOCK_NEYNAR = "true";
-process.env.MOCK_KV = "true";
-process.env.COOLDOWN_TIME = "0";
-process.env.DEFAULT_MAZE_SIZE = "20";
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.test' });
 
 import request from "supertest";
 import storage from "../storage";

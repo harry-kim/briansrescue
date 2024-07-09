@@ -74,7 +74,9 @@ export class MockVercelKV implements Storage {
 
 // Storage factory
 
-const storage: Storage = !process.env.MOCK_KV
+const isMock = process.env.MOCK_KV === 'true';
+
+const storage: Storage = !isMock
   ? new VercelKV()
   : new MockVercelKV();
 export default storage;

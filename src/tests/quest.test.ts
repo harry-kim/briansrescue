@@ -1,4 +1,5 @@
-process.env.MOCK_KV = "true";
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.test' });
 import storage from "../storage";
 import { createMaze, DEFAULT_SIZE, getMaze, move } from "../quest";
 

@@ -21,7 +21,7 @@ app.use(express.json());
 const BRIAN_ESCAPE_IMGURL =
   "https://yellow-charming-gull-339.mypinata.cloud/ipfs/QmS6CumVsHfqpRkHDpwQTPV2cQH6GJH3LYFH4dRK4AgMs2";
 const BRIAN_FRAME_BACKGROUND =
-  "https://yellow-charming-gull-339.mypinata.cloud/ipfs/QmXgRrrsDfmkfnyuqyLYhC8Yj2Dk8ohU7SqW4uWS4DBqi4";
+  "https://yellow-charming-gull-339.mypinata.cloud/ipfs/QmSwD2awem6wRibta2GXUiNt1Lormb2xYCAighv8onPooo";
 function createWinningMessage(username: string) {
   return `
     🚀✨ VICTORY! ✨🚀
@@ -244,7 +244,6 @@ app.post("/frame", async (req: Request, res: Response) => {
     frameImage =
       server_url + `/currentPosition?position=${position}&length=${length}`;
   }
-  console.log("using image", frameImage);
 
   res.send(`
     <!DOCTYPE html>
