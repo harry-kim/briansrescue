@@ -127,7 +127,12 @@ async function checkCooldown(
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
       const message = `You must wait ${hours} hours, ${minutes} minutes, and ${seconds} seconds until you can move Brian again!`;
-      const cooldownTime = `${hours}:${minutes}:${seconds}`;
+
+      // pad the first digit with zero if its a single digit eg 01:01:01
+      const paddedHours = hours.toString().padStart(2, '0');
+      const paddedMinutes = minutes.toString().padStart(2, '0');
+      const paddedSeconds = seconds.toString().padStart(2, '0');
+      const cooldownTime = `${paddedHours}:${paddedMinutes}:${paddedSeconds}`;
       return { isCooldown: true, message, cooldownTime };
     }
     return { isCooldown: false, message: "", cooldownTime: "" };
@@ -222,6 +227,8 @@ app.get("/frame", (req: Request, res: Response) => {
 				<meta property="fc:frame:post_url" content="${server_url}" />
         <meta property="fc:frame:button:1" content="Cooldown" />
         <meta property="fc:frame:button:2" content="Position" />
+        <meta property="og:title" content="Brian's Resuce" />
+        <meta property="og:image" content="${BRIAN_FRAME_BACKGROUND}" />
       </head>
     </html>
 `);
@@ -234,7 +241,7 @@ app.post("/frame", async (req: Request, res: Response) => {
   );
   const fid = data.action.interactor.fid;
   const tappedButton = data.action.tapped_button.index;
-  console.log(fid, tappedButton);
+
   let frameImage = BRIAN_FRAME_BACKGROUND;
   if (tappedButton === 1) {
     frameImage = server_url + `/cooldown?fid=${fid}`;
