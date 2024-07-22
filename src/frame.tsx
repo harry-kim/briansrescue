@@ -114,7 +114,6 @@ export async function currentPosition(
   res.send(pngBuffer);
 }
 
-
 export async function lastMovesFrame(
   req: Request,
   res: Response,
@@ -141,27 +140,15 @@ export async function lastMovesFrame(
         padding: 10,
         lineHeight: 1.2,
         fontSize: 12,
-        fontFamily: 'Roboto, monospace',
+        fontFamily: "Roboto, monospace",
       }}
     >
-      <h2
-        style={{
-          textAlign: "left",
-          color: "white",
-          whiteSpace: "nowrap",
-          margin: 0,
-          padding: 0,
-        }}
-      >
-        Last Moves:
-      </h2>
       <div
         style={{
           display: "flex",
           flexDirection: "row",
-          padding: 0,
-          margin: 0,
-          marginTop: 10,
+          marginTop: 20,
+          paddingTop: 20,
         }}
       >
         {chunks.map((chunk, columnIndex) => (
@@ -177,7 +164,8 @@ export async function lastMovesFrame(
           >
             {chunk.map((move, index) => (
               <span key={index} style={{ margin: 0, padding: 0 }}>
-                {String(columnIndex * chunkSize + index + 1).padStart(2, '0')} - {move}
+                {String(columnIndex * chunkSize + index + 1).padStart(2, "0")} -{" "}
+                {move}
               </span>
             ))}
           </div>
