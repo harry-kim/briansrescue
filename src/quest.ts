@@ -67,9 +67,9 @@ async function setPosition(position: number): Promise<void> {
   }
 }
 
-export function printMapLetters(maze: Array<number>): void {
+export function mazeToLetters(maze: Array<number>): string[] {
   let dir_maze = maze.map((element) => CHAR_DIR[element]);
-  console.log(dir_maze);
+  return dir_maze;
 }
 
 export async function getMaze(): Promise<{
@@ -82,7 +82,7 @@ export async function getMaze(): Promise<{
     if (maze == null) {
       console.log("Maze not found in DB, generating new maze...");
       maze = createMaze();
-      printMapLetters(maze);
+      console.log(mazeToLetters(maze));
       try {
         await storage.set("maze", maze);
         let getmaze;

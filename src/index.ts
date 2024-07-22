@@ -7,7 +7,7 @@ import storage from "./storage";
 import { Request, Response } from "express";
 import express from "express";
 import satori from "satori";
-import { cooldownImage, currentPosition } from "./frame";
+import { cooldownImage, currentPosition, lastMovesFrame } from "./frame";
 
 const DEFAULT_COOLDOWN: number = 4 * 60 * 60 * 1000; // 4 hours in milliseconds, clearly defined as a constant
 const CHANNEL = process.env.CHANNEL || "brians-rescue";
@@ -129,9 +129,9 @@ async function checkCooldown(
       const message = `You must wait ${hours} hours, ${minutes} minutes, and ${seconds} seconds until you can move Brian again!`;
 
       // pad the first digit with zero if its a single digit eg 01:01:01
-      const paddedHours = hours.toString().padStart(2, '0');
-      const paddedMinutes = minutes.toString().padStart(2, '0');
-      const paddedSeconds = seconds.toString().padStart(2, '0');
+      const paddedHours = hours.toString().padStart(2, "0");
+      const paddedMinutes = minutes.toString().padStart(2, "0");
+      const paddedSeconds = seconds.toString().padStart(2, "0");
       const cooldownTime = `${paddedHours}:${paddedMinutes}:${paddedSeconds}`;
       return { isCooldown: true, message, cooldownTime };
     }
@@ -216,6 +216,13 @@ app.get("/frame/currentPosition", async (req: Request, res: Response) => {
   currentPosition(req, res, position, length);
 });
 
+app.get("/frame/lastMoves", async (req: Request, res: Response) => {
+  const position = await getPosition();
+  const maze = (await getMaze()).maze;
+  const lastMoves = maze.slice(0, position);
+  lastMovesFrame(req, res, lastMoves);
+});
+
 app.get("/frame", (req: Request, res: Response) => {
   const server_url = req.protocol + "://" + req.get("host") + req.originalUrl;
   res.send(`
@@ -227,7 +234,8 @@ app.get("/frame", (req: Request, res: Response) => {
 				<meta property="fc:frame:post_url" content="${server_url}" />
         <meta property="fc:frame:button:1" content="Cooldown" />
         <meta property="fc:frame:button:2" content="Position" />
-        <meta property="og:title" content="Brian's Resuce" />
+        <meta property="fc:frame:button:3" content="Last Moves" />
+        <meta property="og:title" content="Brian's Rescue" />
         <meta property="og:image" content="${BRIAN_FRAME_BACKGROUND}" />
       </head>
     </html>
@@ -250,6 +258,10 @@ app.post("/frame", async (req: Request, res: Response) => {
     const length = (await getMaze()).maze.length;
     frameImage =
       server_url + `/currentPosition?position=${position}&length=${length}`;
+  } else if (tappedButton === 3) {
+    const position = await getPosition();
+    const length = (await getMaze()).maze.length;
+    frameImage = server_url + `/lastMoves`;
   }
 
   res.send(`
@@ -260,6 +272,7 @@ app.post("/frame", async (req: Request, res: Response) => {
 				<meta property="fc:frame:image" content="${frameImage}" />
         <meta property="fc:frame:button:1" content="Cooldown" />
         <meta property="fc:frame:button:2" content="Position" />
+        <meta property="fc:frame:button:3" content="Last Moves" />
       </head>
     </html>
 `);
