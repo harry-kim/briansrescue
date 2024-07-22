@@ -142,7 +142,7 @@ export async function move(
     }
     await setPosition(currentPosition);
 
-    if (currentPosition % 25 == 0) {
+    if (currentPosition % 10 == 0) {
       saveCheckpoint(currentPosition);
     }
     return { position: currentPosition, caught: false, won: wonGame };
