@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import neynarClient from "./neynarClient";
-import { getDirection, move, getMaze, getPosition } from "./quest";
+import { getDirection, move, getMaze, getPosition, getHighestPosition } from "./quest";
 import storage from "./storage";
 import { Request, Response } from "express";
 import express from "express";
@@ -217,9 +217,9 @@ app.get("/frame/currentPosition", async (req: Request, res: Response) => {
 });
 
 app.get("/frame/lastMoves", async (req: Request, res: Response) => {
-  const position = await getPosition();
+  const highestPosition = await getHighestPosition();
   const maze = (await getMaze()).maze;
-  const lastMoves = maze.slice(0, position);
+  const lastMoves = maze.slice(0, highestPosition);
   lastMovesFrame(req, res, lastMoves);
 });
 
@@ -259,8 +259,6 @@ app.post("/frame", async (req: Request, res: Response) => {
     frameImage =
       server_url + `/currentPosition?position=${position}&length=${length}`;
   } else if (tappedButton === 3) {
-    const position = await getPosition();
-    const length = (await getMaze()).maze.length;
     frameImage = server_url + `/lastMoves`;
   }
 

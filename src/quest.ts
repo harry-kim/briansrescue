@@ -58,10 +58,24 @@ export async function getPosition(): Promise<number> {
     return 0;
   }
 }
+export async function getHighestPosition(): Promise<number> {
+  try {
+    let highestPositionString: string =
+      (await storage.get("highestPosition")) || "0";
+    const highestPosition: number = parseInt(highestPositionString);
+    return highestPosition;
+  } catch (error) {
+    console.log("error getting highest position setting to 0", error);
+    return 0;
+  }
+}
 
 async function setPosition(position: number): Promise<void> {
   try {
     await storage.set("currentPosition", position);
+    const lastHighestPosition = await storage.get("highestPosition");
+    const highestPosition = Math.max(position, lastHighestPosition);
+    await storage.set("highestPosition", highestPosition);
   } catch (error) {
     console.log(`error setting current position setting to ${position}`, error);
   }
@@ -93,6 +107,7 @@ export async function getMaze(): Promise<{
         }
         await storage.set("checkpoint", "0");
         await storage.set("currentPosition", "0");
+        await storage.set("highestPosition", "0");
         await storage.del("lastMoved");
         newGame = true;
       } catch (error) {
