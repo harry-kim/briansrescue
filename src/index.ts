@@ -67,7 +67,9 @@ app.post("/", async (req: Request, res: Response) => {
       return res.status(200).send("Event already processed");
     }
 
-    const letterDirection = hookData.data.text.split(/\s+/)[1].toUpperCase();
+    const splitCastText = hookData.data.text.split(/\s+/)
+    const commandIndex =  splitCastText.indexOf("!movebrian");
+    const letterDirection = splitCastText[commandIndex+1].toUpperCase();
     const direction = getDirection(letterDirection);
 
     if (typeof direction === "undefined") {

@@ -107,6 +107,34 @@ describe("POST /", () => {
     );
   });
 
+  it("should return 200 and move successfully even if text is in middle", async () => {
+    // Mock the move function to return a successful move result
+    jest.spyOn(quest, "move").mockResolvedValueOnce({
+      position: 1,
+      caught: false,
+      won: false,
+    });
+    jest.spyOn(neynarClient, "replyCast");
+
+    const response = await request(server)
+      .post("/")
+      .send({
+        data: {
+          text: "heaalo \n!movebrian W apseijd",
+          author: {
+            fid: "123",
+          },
+          hash: "mockHash",
+        },
+      });
+    expect(response.status).toBe(200);
+    expect(response.text).toContain("Brian moved");
+    expect(neynarClient.replyCast).toHaveBeenCalledWith(
+      expect.stringContaining("Brian moved"),
+      "mockHash"
+    );
+  });
+
   it("should return 200 and move successfully and contain the correct text", async () => {
     // Mock the move function to return a successful move result
     jest.spyOn(quest, "move").mockResolvedValueOnce({
